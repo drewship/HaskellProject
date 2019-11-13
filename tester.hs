@@ -6,36 +6,78 @@ import JavaishInterpreter
 -- from type test167 = typeCheck $ fst $ parseR $ scanStartMain "4 + 5"
 
 -- Awesome testing:
-
-test14 = scanStartMain "short ] fooooo ,,, throw this (in) the trash"
-test15 = scanStartMain "short ] \n fooooo ,,, throw \n this (in) the trash"
-test16 = scanStartMain "short ] \n \"fooooo ,\",, throw \n this (in) the trash"
-
-test17 = scanStartMain "4564567 { if else \n (in) the trash"
-test111 = parseBinary $ scanStartMain "42"
-test112 = parseBinary $ scanStartMain "42 + 17"
-test113 = parseBinary $ scanStartMain "42 + 17 + 3"
-test114 = parseBinary $ scanStartMain "42 + ( 17 + 3 )"
-test115 = parseBinary $ scanStartMain "42 + 17 * 3"
-test116 = parseBinary $ scanStartMain "42 * 17 + 3"
-test117 = parseBinary $ scanStartMain "42 * ( 17 - 3 ) / 2"
-test118 = parseBinary $ scanStartMain "42 2"
-test119 = parseBinary $ scanStartMain "42 + 2 )"
-test120 = parseBinary $ scanStartMain "42 + ( 2"
-test121 = parseBinary $ scanStartMain "(3+4)*5"
-test122 = parseBinary $ scanStartMain "4 + 5 < 6"
-test123 = parseBinary $ scanStartMain "4 < 5 + 6"
-test124 = parseBinary $ scanStartMain "4 ? 5 : 6"
-test125 = parseBinary $ scanStartMain "4 ? 5 : 6 ? 7 : 8"
-
-prog001 = "class Dog { boolean main() { if(false){  int x; x = 1;} else if( false ) { int x; x = 2; } else{  int x; x = 3; } return ( x > 2);}}"
+prog001 = "class Dog { int main() { int x ; if( true ){ x = 2; } else if( false ) {x = 4; } else { x = 8; } return x ;}}"
 test001 = typecheck prog001
 test101 = interpret prog001
 
-prog002 = "class Dog { boolean main() { if( true ){  int x; if ( false ){ x = 5; } else { x = 1; }} else if( false ) { int x; x = 5; } else{  int x; x = 5; } return ( x > 2);}}"
+{-
+class Dog {
+  int main() {
+    int x ;
+    if( false ){
+      x = 2;
+    }
+    else if( false ) {
+      x = 4;
+    }
+    else {
+      x = 8;
+    }
+    return x ;
+  }
+}
+-}
+
+
+prog002 = "class Dog { int main() { int x ; if( false ){ x = 1; } else if( false ) {x = 4; } return x ;}}"
 test002 = typecheck prog002
 test102 = interpret prog002
 
+
+{-
+Prog002
+  class Dog {
+    int main() {
+      int x ;
+      if( false ){
+        x = 2;
+      }
+      else if( false ) {
+        x = 4;
+      }
+      return x ;
+    }
+  }
+-}
+
+prog003 = "class Dog { int main() { int x; if( true ){ if ( false ){ x = 5; } else { x = 1; }} else if( false ) { x = 7; } else{ x = 6; } return x;}}"
+test003 = typecheck prog002
+test103 = interpret prog002
+
+{-
+PROGRAM 003
+  class Dog {
+    int main() {
+     int x;
+     if( true ){
+        if ( false ){
+          x = 5;
+        }
+        else {
+          x = 1;
+        }
+      }
+    else if( false ) {
+      x = 7;
+    }
+    else{
+      x = 6;
+    }
+    return x;
+    }
+  }
+
+-}
 
 prog1 = "class Dog { }"
 prog2 = "class Dog { int legs; }"

@@ -94,7 +94,7 @@ typeCheckStmt typeRet classMap env stmt =
       case Map.lookup lhs env of
         Nothing ->
           case Map.lookup lhs fieldMap of
-            Nothing -> Left ("weird lhs ")
+            Nothing -> Left ("weird lhs this one " ++ show (stmt) )
             Just typeOfLHS ->
               if typeOfRHS == typeOfLHS then
                 Right env
@@ -153,6 +153,7 @@ typeCheckIfPieces typeRet classMap env (first : rest ) =
       else
         Left "Not a bool"
     StmtElse body -> typeCheckIfBody typeRet classMap env body
+    _ -> undefined
 
 typeCheckIfBody :: Type -> ClassMap -> EnvMap -> [Statement] -> Either String EnvMap
 typeCheckIfBody _ _ env [] = Right env
