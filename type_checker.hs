@@ -17,8 +17,13 @@ allM f ( thing : things ) = do
 
 type EnvMap = Map.Map String Type
 
+-- method name |-> ( return type, parameters )
 type MethodDescr = Map.Map String ( Type, [ ( Type, String ) ] )
+
+-- ( field name |-> field type, method desc map )
 type ClassDescr = ( Map.Map String Type, MethodDescr )
+
+-- ( class name |-> class description )
 type ClassMap = Map.Map String ClassDescr
 
 typeCheckProg :: [ ClassDecl ] -> Maybe String
@@ -57,7 +62,7 @@ secondPassCheckClasses classMap classDecls =
     classDecl : classes ->
       case checkClass classMap classDecl of
         Just errMsg -> Just errMsg
-        Nothing -> secondPassCheckClasses classMap classDecls
+        Nothing -> secondPassCheckClasses classMap classes
 
 checkClass :: ClassMap -> ClassDecl -> Maybe String
 checkClass classMap ( name, _, methodsAll ) = helper methodsAll
@@ -83,13 +88,13 @@ typeCheckStmt typeRet classMap env stmt =
     StmtDeclare ty var ->
       case Map.lookup var env of
         Nothing -> Right( Map.insert var ty env )
-        _ -> Left "redeclaration of variable"
+        _ -> Left ("redeclaration of variable" ++ show stmt)
     StmtAssign lhs rhs -> do
       typeOfRHS <- typeOfExp classMap env rhs
       case Map.lookup lhs env of
         Nothing ->
           case Map.lookup lhs fieldMap of
-            Nothing -> Left "weird lhs"
+            Nothing -> Left ("weird lhs ")
             Just typeOfLHS ->
               if typeOfRHS == typeOfLHS then
                 Right env
@@ -109,11 +114,52 @@ typeCheckStmt typeRet classMap env stmt =
         Right env
       else
         Left "returning the wrong type"
+
+    StmtIfBlock choices -> typeCheckIfstmts typeRet classMap env stmt
+
 --     StmtFunDef typeRet name params stmtsBody -> undefined
 --       -- do returns in the body match typeRet
 --       -- while typechecking body, need to know about params
 --         -- make a new env for the body
 --       -- add an entry in env name -> TFun typeRet [ param types ]
+
+typeCheckIfstmts :: Type -> ClassMap -> EnvMap -> Statement -> Either String EnvMap
+typeCheckIfstmts typeRet classMap env stmt = do
+  case stmt of
+    StmtIfBlock choices -> typeCheckIfPieces typeRet classMap env choices
+    _ -> undefined
+
+
+typeCheckIfPieces :: Type -> ClassMap -> EnvMap -> [Statement] -> Either String EnvMap
+typeCheckIfPieces typeRet classMap env (first : rest ) =
+  case first of
+    StmtIf exp body -> do
+      expType <- typeOfExp classMap env exp
+      if (expType == TBool) then
+        do
+          temp <- typeCheckIfBody typeRet classMap env body
+          case temp of
+            _ -> typeCheckIfPieces typeRet classMap env rest
+      else
+        Left "Not a bool"
+
+    StmtElseIf exp body -> do
+      expType <- typeOfExp classMap env exp
+      if (expType == TBool) then
+        do
+          temp <- typeCheckIfBody typeRet classMap env body
+          case temp of
+            _ -> typeCheckIfPieces typeRet classMap env rest
+      else
+        Left "Not a bool"
+    StmtElse body -> typeCheckIfBody typeRet classMap env body
+
+typeCheckIfBody :: Type -> ClassMap -> EnvMap -> [Statement] -> Either String EnvMap
+typeCheckIfBody _ _ env [] = Right env
+typeCheckIfBody typeRet classMap env ( first : rest ) = do
+  result <- typeCheckStmt typeRet classMap env first
+  typeCheckIfBody typeRet classMap env rest
+
 
 typeOfExp :: ClassMap -> EnvMap -> Expression -> Either String Type
 typeOfExp classMap env exp =

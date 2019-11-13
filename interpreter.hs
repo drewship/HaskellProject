@@ -2,6 +2,7 @@ module JavaishInterpreter where
 
 import JavaishParser
 import Control.Monad
+import Debug.Trace
 
 import qualified Data.Map.Strict as Map
 
@@ -13,10 +14,18 @@ data Value =
     VInt Integer
   | VBool Bool
   | VObj String ( Map.Map String Value )
-  | VFunDef [ String ] [ Statement ]
+  | VNull
   deriving Show
 
 type EnvMap = Map.Map String Value
+
+defaultValueForType :: Type -> Value
+defaultValueForType t =
+  case t of
+    TInt -> VInt 0
+    TBool -> VBool False
+    TClassName _ -> VNull
+    _ -> undefined
 
 evalProg :: [ ClassDecl ] -> Either String Value
 evalProg classDecls = do
@@ -71,6 +80,45 @@ evalStmt classMap envOrRet stmt =
           val <- evalExp classMap env exp
           return ( Left val )
 
+        StmtIfBlock choices -> evalIfBlock classMap env stmt
+
+evalIfBlock :: ClassMap -> EnvMap -> Statement -> Either String ( Either Value EnvMap )
+evalIfBlock classMap env stmt =
+  case stmt of
+    StmtIfBlock choices ->
+      case result of
+        Just selectedStmt ->
+          case selectedStmt of
+            StmtIf _ body -> evalStmts classMap env body
+            StmtElseIf _ body -> evalStmts classMap env body
+            StmtElse body -> evalStmts classMap env body
+            _ -> undefined
+        Nothing -> undefined
+      where
+        result = chooseStmt classMap env choices
+
+    _ -> undefined
+
+chooseStmt :: ClassMap -> EnvMap -> [Statement] -> Maybe Statement
+chooseStmt classMap env [] = Nothing
+chooseStmt classMap env ( first : rest ) =
+  case first of
+    StmtIf exp body-> do
+      let express = evalExp classMap env exp
+      case express of
+        Right (VBool True) -> Just first
+        Right (VBool False) -> chooseStmt classMap env rest
+        _ -> undefined
+    StmtElseIf exp body -> do
+      let express = evalExp classMap env exp
+      case express of
+        Right (VBool True) -> Just first
+        Right (VBool False) -> chooseStmt classMap env rest
+        _ -> undefined
+    StmtElse body -> Just first
+    _ -> undefined
+
+
 evalExp :: ClassMap -> EnvMap -> Expression -> Either String Value
 evalExp classMap env exp =
   case exp of
@@ -79,10 +127,11 @@ evalExp classMap env exp =
     ExpBang e -> do
       v <- evalHere e
       let VBool b = v
-      return( VBool( not b ) )
+      Right( VBool( not b ) )
     ExpVar varname ->
       case Map.lookup varname env of
         Just value -> Right( value )
+        _ -> ( Debug.Trace.trace $ "yikes" ++ show varname ) undefined
     ExpTernary expTest expIfTrue expIfFalse -> do
       vTest <- evalHere expTest
       case vTest of
@@ -95,8 +144,11 @@ evalExp classMap env exp =
         ( VInt l, Plus,  VInt r ) -> VInt( l + r )
         ( VInt l, Times, VInt r ) -> VInt( l * r )
         ( VInt l, Lt,    VInt r ) -> VBool( l < r )
+        ( VInt l, Gt,    VInt r ) -> VBool( l > r )
         _ -> undefined )
-    ExpNew className -> return( VObj className Map.empty )
+    ExpNew className ->
+      let Just( fieldMap, _ ) = Map.lookup className classMap in
+      return( VObj className ( Map.map defaultValueForType fieldMap ) )
     ExpField objExp fieldName -> do
       v <- evalHere objExp
       let VObj className fieldVals = v
@@ -106,10 +158,15 @@ evalExp classMap env exp =
     ExpCall expObj methodName expParams -> do
       valObj <- evalHere expObj
       let VObj className fields = valObj
-      valParams <- mapM evalHere expParams
+      actuals <- mapM evalHere expParams
       let Just ( _, methodMap ) = Map.lookup className classMap
-      let Just ( params, body ) = Map.lookup methodName methodMap
-      undefined
+      let Just ( formals, body ) = Map.lookup methodName methodMap
+      let paramMap = Map.fromList ( zip formals actuals )
+      let finalMap = Map.insert "this" valObj paramMap
+      somedamnthing <- evalStmts classMap finalMap body
+      case somedamnthing of
+        Left returnedValue -> Right returnedValue
+        Right environment -> Left "missing return statement in called function"
 
   where
     evalHere = evalExp classMap env
