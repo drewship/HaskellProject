@@ -94,7 +94,7 @@ typeCheckStmt typeRet classMap env stmt =
       case Map.lookup lhs env of
         Nothing ->
           case Map.lookup lhs fieldMap of
-            Nothing -> Left ("weird lhs this one " ++ show (stmt) )
+            Nothing -> Left "weird lhs -2"
             Just typeOfLHS ->
               if typeOfRHS == typeOfLHS then
                 Right env
@@ -117,6 +117,9 @@ typeCheckStmt typeRet classMap env stmt =
 
     StmtIfBlock choices -> typeCheckIfstmts typeRet classMap env stmt
 
+    StmtWhileBlock wb -> typeCheckWhile typeRet classMap env stmt
+
+    {-StmtForBlock fb -> typeCheckFor typeRet classmap env stmt-}
 --     StmtFunDef typeRet name params stmtsBody -> undefined
 --       -- do returns in the body match typeRet
 --       -- while typechecking body, need to know about params
@@ -162,6 +165,50 @@ typeCheckIfBody typeRet classMap env ( first : rest ) = do
   typeCheckIfBody typeRet classMap env rest
 
 
+typeCheckWhile :: Type -> ClassMap -> EnvMap -> Statement -> Either String EnvMap
+typeCheckWhile typeRet classMap env stmt = do
+  case stmt of
+    StmtWhileBlock wb -> typeCheckWhile2 typeRet classMap env wb
+    _ -> undefined
+
+typeCheckWhile2 :: Type -> ClassMap -> EnvMap -> [Statement] -> Either String EnvMap
+typeCheckWhile2 typeRet classMap env (first:rest) =
+  case first of
+    StmtWhile exp body -> do
+      expType <- typeOfExp classMap env exp
+      if (expType == TBool) then
+        typeCheckWhileBody typeRet classMap env body
+      else
+        Left "Not a bool"
+
+typeCheckWhileBody :: Type -> ClassMap -> EnvMap -> [Statement] -> Either String EnvMap
+typeCheckWhileBody _ _ env [] = Right env
+typeCheckWhileBody typeRet classMap env (first:rest) = do
+  result <- typeCheckStmt typeRet classMap env first
+  typeCheckWhileBody typeRet classMap env rest
+
+{-typeCheckFor :: Type -> ClassMap -> EnvMap -> Statement -> Either String EnvMap
+typeCheckFor typeRet classMap env stmt = do
+  case stmt of
+    StmtForBlock wb -> typeCheckFor2 typeRet classMap env wb
+    _ -> undefined
+
+typeCheckFor2 :: Type -> ClassMap -> EnvMap -> [Statement] -> Either String EnvMap
+typeCheckFor2 typeRet classMap env (first:rest) =
+  case first of
+    StmtFor stmt1 exp exp2 body -> do
+      expType <- typeOfExp classMap env exp
+      if (expType == TBool) then
+        typeCheckWhileBody typeRet classMap env body
+      else
+        Left "Not a bool"
+
+typeCheckForBody :: Type -> ClassMap -> EnvMap -> [Statement] -> Either String EnvMap
+typeCheckForBody _ _ env [] = Right env
+typeCheckForBody typeRet classMap env (first:rest) = do
+  result <- typeCheckStmt typeRet classMap env first
+  typeCheckForBody typeRet classMap env rest-}
+
 typeOfExp :: ClassMap -> EnvMap -> Expression -> Either String Type
 typeOfExp classMap env exp =
   case exp of
@@ -199,7 +246,7 @@ typeOfExp classMap env exp =
         Just t -> Right t
         Nothing ->
           case Map.lookup var fieldMap of
-            Nothing -> Left "weird lhs"
+            Nothing -> Left "weird lhs -1"
             Just t -> Right t
           where
             Just( TClassName thisClass ) = Map.lookup "this" env

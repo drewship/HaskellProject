@@ -2,7 +2,6 @@ module JavaishInterpreter where
 
 import JavaishParser
 import Control.Monad
-import Debug.Trace
 
 import qualified Data.Map.Strict as Map
 
@@ -79,45 +78,72 @@ evalStmt classMap envOrRet stmt =
         StmtReturn exp -> do
           val <- evalExp classMap env exp
           return ( Left val )
+        StmtIfBlock _ -> undefined
+          where
+            selectedStmt = evalIfBlock classMap env stmt
+            statementEval = evalStmts classMap env selectedStmt
 
-        StmtIfBlock choices -> evalIfBlock classMap env stmt
 
-evalIfBlock :: ClassMap -> EnvMap -> Statement -> Either String ( Either Value EnvMap )
-evalIfBlock classMap env stmt =
+evalIfBlock :: ClassMap -> EnvMap -> Statement -> [Statement]
+evalIfBlock classMap env ifBlock =
+  case ifBlock of
+    StmtIfBlock stmts ->
+      case selectedStmt of
+        Right stmt ->
+          case stmt of
+            StmtIf exp body  -> body
+            StmtElseIf exp body ->  body
+            StmtElse body ->  body
+            _ -> undefined
+        _ -> []
+      where
+        selectedStmt = ifBlockHelper stmts
+    _ -> undefined
+
+  where
+    ifBlockHelper ::  [Statement] -> Either String Statement
+    ifBlockHelper [] = Left "Nothing"
+    ifBlockHelper (first:rest) =
+      case first of
+        StmtIf exp body -> do
+          if expressBool then
+            Right first
+          else
+            ifBlockHelper rest
+          where
+            express = evalExp classMap env exp
+            expressBool =
+              case express of
+                Right (VBool bool) -> bool
+                _ -> undefined
+        StmtElseIf exp body -> do
+          if expressBool then
+            Right first
+          else
+            ifBlockHelper rest
+          where
+            express = evalExp classMap env exp
+            expressBool =
+              case express of
+                Right (VBool bool) -> bool
+                _ -> undefined
+        StmtElse body -> Right first
+        _ -> undefined
+
+
+
+{-evalWhileBlock :: ClassMap -> EnvMap -> Statement -> Either String (Either Value EnvMap)
+evalWhileBlock classMap env stmt =
   case stmt of
-    StmtIfBlock choices ->
+    StmtWhileBlock wb ->
       case result of
         Just selectedStmt ->
           case selectedStmt of
-            StmtIf _ body -> evalStmts classMap env body
-            StmtElseIf _ body -> evalStmts classMap env body
-            StmtElse body -> evalStmts classMap env body
+            StmtWhile _ body -> evalStmts classMap env body
             _ -> undefined
         Nothing -> undefined
       where
-        result = chooseStmt classMap env choices
-
-    _ -> undefined
-
-chooseStmt :: ClassMap -> EnvMap -> [Statement] -> Maybe Statement
-chooseStmt classMap env [] = Nothing
-chooseStmt classMap env ( first : rest ) =
-  case first of
-    StmtIf exp body-> do
-      let express = evalExp classMap env exp
-      case express of
-        Right (VBool True) -> Just first
-        Right (VBool False) -> chooseStmt classMap env rest
-        _ -> undefined
-    StmtElseIf exp body -> do
-      let express = evalExp classMap env exp
-      case express of
-        Right (VBool True) -> Just first
-        Right (VBool False) -> chooseStmt classMap env rest
-        _ -> undefined
-    StmtElse body -> Just first
-    _ -> undefined
-
+        result = chooseStmt classMap env wb-}
 
 evalExp :: ClassMap -> EnvMap -> Expression -> Either String Value
 evalExp classMap env exp =
@@ -131,7 +157,6 @@ evalExp classMap env exp =
     ExpVar varname ->
       case Map.lookup varname env of
         Just value -> Right( value )
-        _ -> ( Debug.Trace.trace $ "yikes" ++ show varname ) undefined
     ExpTernary expTest expIfTrue expIfFalse -> do
       vTest <- evalHere expTest
       case vTest of
@@ -144,7 +169,6 @@ evalExp classMap env exp =
         ( VInt l, Plus,  VInt r ) -> VInt( l + r )
         ( VInt l, Times, VInt r ) -> VInt( l * r )
         ( VInt l, Lt,    VInt r ) -> VBool( l < r )
-        ( VInt l, Gt,    VInt r ) -> VBool( l > r )
         _ -> undefined )
     ExpNew className ->
       let Just( fieldMap, _ ) = Map.lookup className classMap in

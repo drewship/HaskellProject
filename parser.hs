@@ -29,6 +29,10 @@ data Statement =
   | StmtIf Expression [ Statement ]
   | StmtElseIf Expression [ Statement ]
   | StmtElse [ Statement ]
+  | StmtWhileBlock [Statement]
+  | StmtWhile Expression [Statement]
+  | StmtForBlock [Statement]
+  | StmtFor Statement Expression Expression [Statement]
   deriving Show
 
 data Expression =
@@ -153,6 +157,12 @@ parseStmt tokens =
     ( TokKeyword If , _ ): afterIf -> do
       (stmts , afterStmts) <- parseIf afterIf
       Right (stmts , afterStmts)
+    (TokKeyword While, _) : afterWhile -> do
+      (stmts, afterStmts) <- parseWhile afterWhile
+      Right (stmts, afterStmts)
+    {-}(TokKeyword For, _) : afterFor -> do
+      (stmts, afterStmts) <- parseFor afterFor
+      Right (stmts, afterStmts)-}
     _ -> do
       ( torv, afterTorV ) <- parseTorV tokens
       ( stmt, afterStmt ) <- parseStmt2 torv afterTorV
@@ -246,6 +256,59 @@ ifHelper tokens =
       ( stmt, afterStmt ) <- parseStmt tokens
       ( stmts, afterAll ) <- parseStmts afterStmt
       Right( stmt : stmts, afterAll )
+parseWhile :: [TokenPos] -> Either String (Statement, [TokenPos])
+parseWhile tokens = do
+  (whileExp, afterExp) <- parseF tokens
+  case afterExp of
+    ((TokSymb OpenBrace, _): afterBrace) -> do
+      (whileStmts, afterWhileStmts) <- whileHelper afterBrace
+      let whileStmt = StmtWhile whileExp whileStmts
+      case afterWhileStmts of
+        _ -> Right (whileBlock, afterWhileStmts)
+          where
+            whileBlock = StmtWhileBlock (whileStmt:[])
+    _ -> undefined
+
+whileHelper :: [TokenPos] -> Either String ([Statement], [TokenPos])
+whileHelper [] = undefined
+whileHelper tokens =
+  case tokens of
+    (TokSymb CloseBrace, _) : afterBrace -> Right ([], afterBrace)
+    _ -> do
+      (stmt, afterStmt) <- parseStmt tokens
+      (stmts, afterAll) <- parseStmts afterStmt
+      Right (stmt:stmts, afterAll)
+
+{-parseFor :: [TokenPos] -> Either String (Statement, [TokenPos])
+parseFor tokens = do
+  (forExp, afterExp) <- parseF tokens
+  case afterExp of
+    ((TokSymb OpenBrace, _): afterBrace) -> do
+      (forStmts, afterForStmts) <- forHelper afterBrace
+      let forStmt = StmtFor  s forExp e2 forStmts where
+        s =
+        e2 =
+      case afterForStmts of
+        _ -> Right (forBlock, afterForStmts)
+          where
+            forBlock = StmtForBlock (forStmt:[])
+    _ -> undefined
+
+forHelper :: [TokenPos] -> Either String ([Statement], [TokenPos])
+forHelper [] = undefined
+forHelper tokens =
+  case tokens of
+    (TokSymb CloseBrace, _) : afterBrace -> Right ([], afterBrace)
+    _ -> do
+      (stmt, afterStmt) <- parseStmt tokens
+      (stmts, afterAll) <- parseStmts afterStmt
+      Right (stmt:stmts, afterAll)
+
+parseForParams :: [TokenPos] -> Either String (Statement, Expression, Expression, [TokenPos])
+parseForParams [] = undefined
+case s:sc1::tokens of
+  (s _, e1, e2, afterParams)
+  _ -> "invalid for loop"-}
 
 
 parseTernary :: [ TokenPos ] -> Either String ( Expression, [ TokenPos ] )
@@ -351,27 +414,6 @@ parseActuals tokens =
       ( params, afterAll ) <- parseActuals afterParam
       Right( param : params, afterAll )
     _ -> Left "bad actuals"
-
-
-
---parse = parseProgram . scanStartMain
-
--- prog001 = "class Dog { boolean meow( Dog d ) { if(true){ int z; } else if( false ) { int y; } else{ int d; } z = 4; }}"
--- test001 = parseTester prog001
--- test002 = parseProgram $ scanStart "if ( true ){ y = 2 ;} \n z = 2 + 2"
---
--- test003 = parseProgram $ scanStart "if ( true ){ y = 2 ;} else { y = 4;}"
---
--- test004 = parseProgram $ scanStart "if ( true ){ y = 2 ;} else if ( false ){ y = 3; } else { y = 4;}"
---
--- test005 = parseProgram $ scanStart "class test { void tester( int z ) {if ( true ){ z = 2 ;} else { z = 4; } }}"
-
-
--- parseTester :: String -> Either String [ ClassDecl ]
--- parseTester str = do
---   result <- parse str
---   return result
-
 
 
 {-
