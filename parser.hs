@@ -28,7 +28,7 @@ data Statement =
   | StmtWhileBlock [Statement]
   | StmtWhile Expression [Statement]
   | StmtForBlock [Statement]
-  | StmtFor Expression Expression Expression [Statement]
+  | StmtFor Statement Expression Expression [Statement]
   deriving Show
 
 data Expression =
@@ -150,9 +150,12 @@ parseStmt tokens =
       case afterExp of
         ( TokSymb Semicolon, _ ) : afterSemi -> Right( StmtReturn exp, afterSemi )
         _ -> Left "missing semicolon after return"
-    ( TokKeyword While, _) : afterWhile -> do
+    (TokKeyword While, _) : afterWhile -> do
       (stmts, afterStmts) <- parseWhile afterWhile
       Right (stmts, afterStmts)
+    {-}(TokKeyword For, _) : afterFor -> do
+      (stmts, afterStmts) <- parseFor afterFor
+      Right (stmts, afterStmts)-}
     _ -> do
       ( torv, afterTorV ) <- parseTorV tokens
       ( stmt, afterStmt ) <- parseStmt2 torv afterTorV
@@ -207,6 +210,37 @@ whileHelper tokens =
       (stmt, afterStmt) <- parseStmt tokens
       (stmts, afterAll) <- parseStmts afterStmt
       Right (stmt:stmts, afterAll)
+
+{-parseFor :: [TokenPos] -> Either String (Statement, [TokenPos])
+parseFor tokens = do
+  (forExp, afterExp) <- parseF tokens
+  case afterExp of
+    ((TokSymb OpenBrace, _): afterBrace) -> do
+      (forStmts, afterForStmts) <- forHelper afterBrace
+      let forStmt = StmtFor  s forExp e2 forStmts where
+        s =
+        e2 =
+      case afterForStmts of
+        _ -> Right (forBlock, afterForStmts)
+          where
+            forBlock = StmtForBlock (forStmt:[])
+    _ -> undefined
+
+forHelper :: [TokenPos] -> Either String ([Statement], [TokenPos])
+forHelper [] = undefined
+forHelper tokens =
+  case tokens of
+    (TokSymb CloseBrace, _) : afterBrace -> Right ([], afterBrace)
+    _ -> do
+      (stmt, afterStmt) <- parseStmt tokens
+      (stmts, afterAll) <- parseStmts afterStmt
+      Right (stmt:stmts, afterAll)
+
+parseForParams :: [TokenPos] -> Either String (Statement, Expression, Expression, [TokenPos])
+parseForParams [] = undefined
+case s:sc1::tokens of
+  (s _, e1, e2, afterParams)
+  _ -> "invalid for loop"-}
 
 
 parseTernary :: [ TokenPos ] -> Either String ( Expression, [ TokenPos ] )
